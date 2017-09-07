@@ -3,18 +3,18 @@ import numpy as np
 import datetime
 
 import tensorflow as tf
-from vdcnn import VDCNN
+from vdcnn_9 import VDCNN
 import data_helper
 
 # Data Preparation
 # Load data
 print("Loading data...")
-dataset_path='dbpedia_csv/'
+dataset_path='ag_news_csv/'
 train_data, train_label, test_data, test_label = data_helper.load_dataset(dataset_path)
 
 # Parameters settings
 # TODO: USE TENSORFLOW FLAGS
-dropout = 0.5
+dropout = 1.0
 learning_rate = 1e-2
 batch_size = 128
 num_epochs = 500

@@ -60,16 +60,16 @@ class VDCNN():
             self.first_conv = tf.nn.relu(out)
 
         # all convolutional blocks
-        self.conv_block_1 = Convolutional_Block(self.first_conv, num_layers=4, num_filters=64, name='1', is_training=self.is_training)
+        self.conv_block_1 = Convolutional_Block(self.first_conv, num_layers=2, num_filters=64, name='1', is_training=self.is_training)
         self.pool1 = tf.nn.max_pool(self.conv_block_1, ksize=[1, 3, 1, 1], strides=[1, 2, 1, 1], padding='SAME', name="pool_1")
 
-        self.conv_block_2 = Convolutional_Block(self.pool1, num_layers=4, num_filters=128, name='2', is_training=self.is_training)
+        self.conv_block_2 = Convolutional_Block(self.pool1, num_layers=2, num_filters=128, name='2', is_training=self.is_training)
         self.pool2 = tf.nn.max_pool(self.conv_block_2, ksize=[1, 3, 1, 1], strides=[1, 2, 1, 1], padding='SAME', name="pool_2")
 
-        self.conv_block_3 = Convolutional_Block(self.pool2, num_layers=4, num_filters=256, name='3', is_training=self.is_training)
+        self.conv_block_3 = Convolutional_Block(self.pool2, num_layers=2, num_filters=256, name='3', is_training=self.is_training)
         self.pool3 = tf.nn.max_pool(self.conv_block_3, ksize=[1, 3, 1, 1], strides=[1, 2, 1, 1], padding='SAME', name="pool_3")
 
-        self.conv_block_4 = Convolutional_Block(self.pool3, num_layers=4, num_filters=512, name='4', is_training=self.is_training)
+        self.conv_block_4 = Convolutional_Block(self.pool3, num_layers=2, num_filters=512, name='4', is_training=self.is_training)
 
         transposed = tf.transpose(self.conv_block_4, [0,3,2,1])
         self.k_pooled = tf.nn.top_k(transposed, k=8, name='k_pool')
