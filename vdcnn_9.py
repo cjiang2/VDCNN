@@ -32,7 +32,7 @@ def Convolutional_Block(inputs, num_layers, num_filters, name, is_training):
         return out
 
 class VDCNN():
-    def __init__(self, num_classes, l2_reg_lambda=0.0005, sequence_max_length=1014, num_quantized_chars=69, embedding_size=16):
+    def __init__(self, num_classes, l2_reg_lambda=0.0005, sequence_max_length=1014, num_quantized_chars=69, embedding_size=16, use_k_max_pooling=False):
         # input tensors
         self.input_x = tf.placeholder(tf.int32, [None, sequence_max_length], name="input_x")
         self.input_y = tf.placeholder(tf.float32, [None, num_classes], name="input_y")
@@ -71,9 +71,14 @@ class VDCNN():
 
         self.conv_block_4 = Convolutional_Block(self.pool3, num_layers=2, num_filters=512, name='4', is_training=self.is_training)
 
-        transposed = tf.transpose(self.conv_block_4, [0,3,2,1])
-        self.k_pooled = tf.nn.top_k(transposed, k=8, name='k_pool')
-        reshaped = tf.reshape(self.k_pooled[0], (-1, 512*8))
+        if use_k_max_pooling:
+            transposed = tf.transpose(self.conv_block_4, [0,3,2,1])
+            self.k_pooled = tf.nn.top_k(transposed, k=8, name='k_pool')
+            reshaped = tf.reshape(self.k_pooled[0], (-1, 512*8))
+        else:
+            self.pool4 = tf.nn.max_pool(self.conv_block_4, ksize=[1, 3, 1, 1], strides=[1, 2, 1, 1], padding='SAME', name="pool_2")
+            shape = int(np.prod(self.pool4.get_shape()[1:]))
+            reshaped = tf.reshape(self.pool4, (-1, shape))
 
         # fc1
         with tf.variable_scope('fc1'):

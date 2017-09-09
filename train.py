@@ -15,6 +15,7 @@ tf.flags.DEFINE_string("database_path", "ag_news_csv/", "Path for the dataset to
 tf.flags.DEFINE_float("dropout_keep_prob", 1.0, "Dropout keep probability (default: 1.0)")
 tf.flags.DEFINE_float("l2_reg_lambda", 0.0, "L2 regularization lambda (default: 0.0)")
 tf.flags.DEFINE_integer("sequence_max_length", 1014, "Sequence Max Length (default: 1014)")
+tf.flags.DEFINE_boolean("use_k_max_pooling", False, "Use K-Maxpooling instead of Maxpooling (default: False)")
 
 # Training Parameters
 tf.flags.DEFINE_float("learning_rate", 1e-2, "Starter Learning Rate (default: 1e-2)")
@@ -42,7 +43,8 @@ cnn = VDCNN(num_classes=len(train_label[0]),
 	l2_reg_lambda=FLAGS.l2_reg_lambda, 
 	sequence_max_length=FLAGS.sequence_max_length, 
 	num_quantized_chars=69, 
-	embedding_size=16)
+	embedding_size=16,
+	use_k_max_pooling=FLAGS.use_k_max_pooling)
 
 # Optimizer and LR Decay
 update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
