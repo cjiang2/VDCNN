@@ -6,7 +6,7 @@ alphabet = 'abcdefghijklmnopqrstuvwxyz0123456789-,;.!?:’"/|_#$%ˆ&*˜‘+=<>()
 sequence_max_length = 1014
 char_dict = {}
 for i,c in enumerate(alphabet):
-    char_dict[c] = i + 2
+    char_dict[c] = i
 
 def load_csv_file(filename, num_classes):
 	"""
@@ -21,14 +21,16 @@ def load_csv_file(filename, num_classes):
 			one_hot = np.zeros(num_classes)
 			one_hot[int(row['class']) - 1] = 1
 			labels.append(one_hot)
-			i = 0
 			# Text
-			data = np.ones(sequence_max_length)
-			for char in row['fields'][1].lower():
-				if char in char_dict:
-					data[i] = char_dict[char]
-					i += 1
-				if i >= sequence_max_length - 1:
+			data = np.ones(sequence_max_length)*68
+			text = row['fields'][1].lower()
+			for i in range(0, len(text)):
+				if text[i] in char_dict:
+					data[i] = char_dict[text[i]]
+				else:
+					# unknown character set to be 67
+					data[i] = 67
+				if i > sequence_max_length - 1:
 					break
 			all_data.append(data)
 	f.close()
