@@ -61,6 +61,15 @@ Results for K-max Pooling(k = 8):
 |    17 layers    |  90.61 / xx.xxxx  |  98.39 / xx.xxxx  |  96.49 / xx.xxxx  |
 |    29 layers    |  91.33 / xx.xxxx  |  98.59 / xx.xxxx  |  96.82 / xx.xxxx  |
 
+## TODOs
+
+ - (i): Optional Shortcut
+ - (ii): Three types of downsampling between blocks: 
+         (a) maxpooling(Done)
+         (b) k-maxpooling(Tensorflow doesn't support this operation natively so I'll keep looking for a way :( )
+         (c) Convolution with Stride 2
+ - (iii) Testing for all datasets and a detailed accuracy for 9, 17 and 28 depth.
+
 ## Reference
 [Original preprocessing codes and VDCNN Implementation By geduo15](https://github.com/geduo15/Very-Deep-Convolutional-Networks-for-Natural-Language-Processing-in-tensorflow)
 
