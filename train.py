@@ -14,8 +14,9 @@ tf.flags.DEFINE_string("database_path", "ag_news_csv/", "Path for the dataset to
 # Model Hyperparameters
 tf.flags.DEFINE_float("weight_decay", 1e-4, "Weight decay ratio (default: 1e-4)")
 tf.flags.DEFINE_integer("sequence_max_length", 1024, "Sequence Max Length (default: 1024)")
-tf.flags.DEFINE_string("downsampling_type", "k-maxpool", "Types of downsampling methods, use either three of maxpool, k-maxpool and linear (default: 'maxpool')")
+tf.flags.DEFINE_string("downsampling_type", "maxpool", "Types of downsampling methods, use either three of maxpool, k-maxpool and linear (default: 'maxpool')")
 tf.flags.DEFINE_string("num_layers", "2,2,2,2", "Comma-separated No. of blocks, use either four of '2,2,2,2', '4,4,4,4', '10,10,4,4' or '16,16,10,6'")
+tf.flags.DEFINE_string("num_filters", "64,128,256,512", "Comma-separated No. of filters (default: '64,128,256,512')")
 tf.flags.DEFINE_boolean("use_he_uniform", True, "Initialize embedding lookup with he_uniform (default: True)")
 tf.flags.DEFINE_boolean("use_bias", False, "Use bias (default: False)")
 
@@ -36,7 +37,7 @@ print("")
 # Data Preparation
 # Load data
 print("Loading data...")
-data_helper = data_helper(FLAGS.sequence_max_length)
+data_helper = data_helper(sequence_max_length=FLAGS.sequence_max_length)
 train_data, train_label, test_data, test_label = data_helper.load_dataset(FLAGS.database_path)
 num_batches_per_epoch = int((len(train_data)-1)/FLAGS.batch_size) + 1
 print("Loading data succees...")
@@ -50,6 +51,7 @@ cnn = VDCNN(num_classes=train_label.shape[1],
 	weight_decay=FLAGS.weight_decay,
 	use_he_uniform=FLAGS.use_he_uniform,
 	use_bias=FLAGS.use_bias,
+	num_filters=list(map(int, FLAGS.num_filters.split(","))),
 	num_layers=list(map(int, FLAGS.num_layers.split(","))))
 
 # Optimizer and LR Decay
