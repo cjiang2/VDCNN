@@ -1,5 +1,6 @@
 import tensorflow as tf
 import numpy as np
+import math
 
 # weights initializers
 he_normal = tf.keras.initializers.he_normal()
@@ -36,17 +37,37 @@ def Convolutional_Block(inputs, num_layers, num_filters, name, is_training, weig
     return out
 
 class VDCNN():
-    def __init__(self, num_classes, weight_decay=1e-4, sequence_max_length=1024, num_quantized_chars=69, embedding_size=16, num_layers=[2,2,2,2],
-                 use_k_max_pooling=False, use_bias=False):
+    def __init__(self, num_classes, sequence_max_length=1024, num_quantized_chars=69, embedding_size=16, 
+                 num_layers=[2,2,2,2], downsampling_type='maxpool', weight_decay=1e-4, use_bias=False, use_he_uniform=False):
         # input tensors
         self.input_x = tf.placeholder(tf.int32, [None, sequence_max_length], name="input_x")
         self.input_y = tf.placeholder(tf.float32, [None, num_classes], name="input_y")
         self.is_training =  tf.placeholder(tf.bool)
 
+        # Three types of downsampling methods described by paper
+        def downsampling(inputs, downsampling_type, name):
+            if downsampling_type=='k-maxpool':
+                k = math.ceil(int(inputs.get_shape()[1]) / 2)
+                k_pooled = tf.nn.top_k(tf.transpose(inputs, [0,2,1]), k=k, name=name, sorted=False)[0]
+                print(k_pooled.get_shape())
+                return tf.transpose(k_pooled, [0,2,1])
+
+            elif downsampling_type=='linear':
+                with tf.variable_scope(name):
+                    filter_shape = [3, inputs.get_shape()[2], inputs.get_shape()[2]]
+                    w = tf.get_variable(name='W', shape=filter_shape, 
+                        initializer=he_normal,
+                        regularizer=tf.contrib.layers.l2_regularizer(weight_decay))
+                    return tf.nn.conv1d(inputs, w, stride=2, padding="SAME")
+            else:
+                return tf.layers.max_pooling1d(inputs=inputs, pool_size=3, strides=2, padding='same', name=name)
+
         # Embedding Lookup 16
         with tf.device('/cpu:0'), tf.name_scope("embedding"):
-            #self.embedding_W = tf.Variable(tf.random_uniform([num_quantized_chars, embedding_size], -1.0, 1.0),name="embedding_W")
-            self.embedding_W = tf.get_variable(name='lookup_W', shape=[num_quantized_chars, embedding_size], initializer=tf.keras.initializers.he_uniform())
+            if use_he_uniform:
+                self.embedding_W = tf.get_variable(name='lookup_W', shape=[num_quantized_chars, embedding_size], initializer=tf.keras.initializers.he_uniform())
+            else:
+                self.embedding_W = tf.Variable(tf.random_uniform([num_quantized_chars, embedding_size], -1.0, 1.0),name="embedding_W")
             self.embedded_characters = tf.nn.embedding_lookup(self.embedding_W, self.input_x)
             print(self.embedded_characters.get_shape())
 
@@ -66,15 +87,15 @@ class VDCNN():
 
         # all convolutional blocks
         self.conv_block_1 = Convolutional_Block(self.temp_conv, num_layers=num_layers[0], num_filters=64, name='1', weight_decay=weight_decay, is_training=self.is_training)
-        self.pool1 = tf.layers.max_pooling1d(inputs=self.conv_block_1, pool_size=3, strides=2, padding='same', name='pool1')
+        self.pool1 = downsampling(self.conv_block_1, downsampling_type=downsampling_type, name='pool1')
         print(self.pool1.get_shape())
 
         self.conv_block_2 = Convolutional_Block(self.pool1, num_layers=num_layers[1], num_filters=128, name='2', weight_decay=weight_decay, is_training=self.is_training)
-        self.pool2 = tf.layers.max_pooling1d(inputs=self.conv_block_2, pool_size=3, strides=2, padding='same', name='pool2')
+        self.pool2 = downsampling(self.conv_block_2, downsampling_type=downsampling_type, name='pool2')
         print(self.pool2.get_shape())
 
         self.conv_block_3 = Convolutional_Block(self.pool2, num_layers=num_layers[2], num_filters=256, name='3', weight_decay=weight_decay, is_training=self.is_training)
-        self.pool3 = tf.layers.max_pooling1d(inputs=self.conv_block_3, pool_size=3, strides=2, padding='same', name='pool3')
+        self.pool3 = downsampling(self.conv_block_3, downsampling_type=downsampling_type, name='pool3')
         print(self.pool3.get_shape())
 
         self.conv_block_4 = Convolutional_Block(self.pool3, num_layers=num_layers[3], num_filters=512, name='4', weight_decay=weight_decay, is_training=self.is_training)
