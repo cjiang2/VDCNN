@@ -12,13 +12,11 @@ from vdcnn import VDCNN
 tf.flags.DEFINE_string("database_path", "ag_news_csv/", "Path for the dataset to be used.")
 
 # Model Hyperparameters
-tf.flags.DEFINE_float("weight_decay", 1e-4, "Weight decay ratio (default: 1e-4)")
-tf.flags.DEFINE_integer("sequence_max_length", 1024, "Sequence Max Length (default: 1024)")
+tf.flags.DEFINE_integer("sequence_max_length", 1014, "Sequence Max Length (default: 1024)")
 tf.flags.DEFINE_string("downsampling_type", "maxpool", "Types of downsampling methods, use either three of maxpool, k-maxpool and linear (default: 'maxpool')")
-tf.flags.DEFINE_string("num_layers", "2,2,2,2", "Comma-separated No. of blocks, use either four of '2,2,2,2', '4,4,4,4', '10,10,4,4' or '16,16,10,6'")
-tf.flags.DEFINE_string("num_filters", "64,128,256,512", "Comma-separated No. of filters (default: '64,128,256,512')")
+tf.flags.DEFINE_integer("depth", 9, "Depth for VDCNN, use either 9, 17, 29 or 47 (default: 9)")
 tf.flags.DEFINE_boolean("use_he_uniform", True, "Initialize embedding lookup with he_uniform (default: True)")
-tf.flags.DEFINE_boolean("use_bias", False, "Use bias (default: False)")
+tf.flags.DEFINE_boolean("optional_shortcut", False, "Use optional shortcut (default: False)")
 
 # Training Parameters
 tf.flags.DEFINE_float("learning_rate", 1e-2, "Starter Learning Rate (default: 1e-2)")
@@ -46,13 +44,11 @@ print("Loading data succees...")
 acc_list = [0]
 sess = tf.Session()
 cnn = VDCNN(num_classes=train_label.shape[1], 
+	depth=FLAGS.depth,
 	sequence_max_length=FLAGS.sequence_max_length, 
 	downsampling_type=FLAGS.downsampling_type,
-	weight_decay=FLAGS.weight_decay,
 	use_he_uniform=FLAGS.use_he_uniform,
-	use_bias=FLAGS.use_bias,
-	num_filters=list(map(int, FLAGS.num_filters.split(","))),
-	num_layers=list(map(int, FLAGS.num_layers.split(","))))
+	optional_shortcut=FLAGS.optional_shortcut)
 
 # Optimizer and LR Decay
 update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)

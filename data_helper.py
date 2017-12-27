@@ -8,18 +8,18 @@ class data_helper():
 		self.char_dict = {}
 		self.sequence_max_length = sequence_max_length
 		for i,c in enumerate(self.alphabet):
-			self.char_dict[c] = i
+			self.char_dict[c] = i+1
 
 	def char2vec(self, text):
-		data = np.ones(self.sequence_max_length)*68
+		data = np.zeros(self.sequence_max_length)
 		for i in range(0, len(text)):
-			if text[i] in self.char_dict:
-				data[i] = self.char_dict[text[i]]
-			else:
-				# unknown character set to be 67
-				data[i] = 67
 			if i > self.sequence_max_length:
 				return data
+			elif text[i] in self.char_dict:
+				data[i] = self.char_dict[text[i]]
+			else:
+				# unknown character set to be 68
+				data[i] = 68
 		return data
 
 	def load_csv_file(self, filename, num_classes):

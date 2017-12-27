@@ -1,4 +1,5 @@
 ## TODOs
+ - Optional shortcut (Done, but untested)
  - Fix BUGs mentioned in Issues (Done)
  - Use Conv1D instead of Conv2D (Done)
  - Three types of downsampling between blocks: 
