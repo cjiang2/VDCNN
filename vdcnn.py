@@ -17,18 +17,18 @@ def Convolutional_Block(inputs, shortcut, num_filters, name, is_training):
                 W = tf.get_variable(name='W', shape=filter_shape, 
                     initializer=he_normal,
                     regularizer=regularizer)
-                out = tf.nn.conv1d(inputs, W, stride=1, padding="SAME")
-                out = tf.layers.batch_normalization(inputs=out, momentum=0.997, epsilon=1e-5, 
+                inputs = tf.nn.conv1d(inputs, W, stride=1, padding="SAME")
+                inputs = tf.layers.batch_normalization(inputs=inputs, momentum=0.997, epsilon=1e-5, 
                                                 center=True, scale=True, training=is_training)
-                out = tf.nn.relu(out)
-                print("Conv1D:", out.get_shape())
+                inputs = tf.nn.relu(inputs)
+                print("Conv1D:", inputs.get_shape())
     print("-"*20)
     if shortcut is not None:
         print("-"*5)
         print("Optional Shortcut:", shortcut.get_shape())
         print("-"*5)
-        return out + shortcut
-    return out
+        return inputs + shortcut
+    return inputs
 
 # Three types of downsampling methods described by paper
 def downsampling(inputs, downsampling_type, name, optional_shortcut=False, shortcut=None):
