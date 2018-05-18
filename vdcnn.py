@@ -1,193 +1,109 @@
-import tensorflow as tf
-import numpy as np
-import math
+import keras
+from keras.models import Model
+from keras.layers import Input, Embedding, Conv1D, BatchNormalization, Activation, Add, MaxPooling1D, Dense, Flatten
+from keras.engine.topology import get_source_inputs
+from k_maxpooling import *
 
-# weights initializers
-he_normal = tf.keras.initializers.he_normal()
-regularizer = tf.contrib.layers.l2_regularizer(1e-4)
+def identity_block(inputs, filters, kernel_size=3, use_bias=False, shortcut=False):
+    conv1 = Conv1D(filters=filters, kernel_size=kernel_size, strides=1, padding='same')(inputs)
+    bn1 = BatchNormalization()(conv1)
+    relu = Activation('relu')(bn1)
+    conv2 = Conv1D(filters=filters, kernel_size=kernel_size, strides=1, padding='same')(relu)
+    out = BatchNormalization()(conv2)
+    if shortcut:
+        out = Add()([out, inputs])
+    return Activation('relu')(out)
 
-def Convolutional_Block(inputs, shortcut, num_filters, name, is_training):
-    print("-"*20)
-    print("Convolutional Block", str(num_filters), name)
-    print("-"*20)
-    with tf.variable_scope("conv_block_" + str(num_filters) + "_" + name):
-        for i in range(2):
-            with tf.variable_scope("conv1d_%s" % str(i)):
-                filter_shape = [3, inputs.get_shape()[2], num_filters]
-                W = tf.get_variable(name='W', shape=filter_shape, 
-                    initializer=he_normal,
-                    regularizer=regularizer)
-                inputs = tf.nn.conv1d(inputs, W, stride=1, padding="SAME")
-                inputs = tf.layers.batch_normalization(inputs=inputs, momentum=0.997, epsilon=1e-5, 
-                                                center=True, scale=True, training=is_training)
-                inputs = tf.nn.relu(inputs)
-                print("Conv1D:", inputs.get_shape())
-    print("-"*20)
-    if shortcut is not None:
-        print("-"*5)
-        print("Optional Shortcut:", shortcut.get_shape())
-        print("-"*5)
-        return inputs + shortcut
-    return inputs
+def conv_block(inputs, filters, kernel_size=3, use_bias=False, shortcut=False, 
+               pool_type='max', sorted=True, stage=1):
+    conv1 = Conv1D(filters=filters, kernel_size=kernel_size, strides=1, padding='same')(inputs)
+    bn1 = BatchNormalization()(conv1)
+    relu1 = Activation('relu')(bn1)
 
-# Three types of downsampling methods described by paper
-def downsampling(inputs, downsampling_type, name, optional_shortcut=False, shortcut=None):
-    # k-maxpooling
-    if downsampling_type=='k-maxpool':
-        k = math.ceil(int(inputs.get_shape()[1]) / 2)
-        pool = tf.nn.top_k(tf.transpose(inputs, [0,2,1]), k=k, name=name, sorted=False)[0]
-        pool = tf.transpose(pool, [0,2,1])
-    # Linear
-    elif downsampling_type=='linear':
-        pool = tf.layers.conv1d(inputs=inputs, filters=inputs.get_shape()[2], kernel_size=3,
-                            strides=2, padding='same', use_bias=False)
-    # Maxpooling
+    conv2 = Conv1D(filters=filters, kernel_size=kernel_size, strides=1, padding='same')(relu1)
+    out = BatchNormalization()(conv2)
+    out = downsample(out, pool_type=pool_type, sorted=sorted, stage=stage)
+
+    if shortcut:
+        residual = Conv1D(filters=filters, kernel_size=1, strides=2, name='shortcut_conv1d_%d' % stage)(inputs)
+        residual = BatchNormalization(name='shortcut_batch_normalization_%d' % stage)(residual)
+        out = Add()([out, residual])
+    out = Activation('relu')(out)
+    out = Conv1D(filters=2*filters, kernel_size=1, strides=1, padding='same', name='1_1_conv_%d' % stage)(out)
+    out = BatchNormalization(name='1_1_batch_normalization_%d' % stage)(out)
+    return out
+
+def downsample(inputs, pool_type='max', sorted=True, stage=1):
+    if pool_type == 'max':
+        out = MaxPooling1D(pool_size=3, strides=2, padding='same', name='pool_%d' % stage)(inputs)
+    elif pool_type == 'k_max':
+        k = int(inputs._keras_shape[1]/2)
+        out = KMaxPooling(k=k, sorted=sorted, name='pool_%d' % stage)(inputs)
+    elif pool_type == 'conv':
+        out = Conv1D(filters=inputs._keras_shape[-1], kernel_size=3, strides=2, padding='same', name='pool_%d' % stage)(inputs)
+        out = BatchNormalization()(out)
+    return out
+
+
+def VDCNN(num_classes, depth=9, sequence_length=1024, embedding_dim=16, 
+          shortcut=False, pool_type='max', sorted=True, use_bias=False, input_tensor=None):
+    if depth == 9:
+        num_conv_blocks = (1, 1, 1, 1)
+    elif depth == 17:
+        num_conv_blocks = (2, 2, 2, 2)
+    elif depth == 29:
+        num_conv_blocks = (5, 5, 2, 2)
+    elif depth == 49:
+        num_conv_blocks = (8, 8, 5, 3)
     else:
-        pool = tf.layers.max_pooling1d(inputs=inputs, pool_size=3, strides=2, padding='same', name=name)
-    if optional_shortcut:
-        shortcut = tf.layers.conv1d(inputs=shortcut, filters=shortcut.get_shape()[2], kernel_size=1,
-                            strides=2, padding='same', use_bias=False)
-        print("-"*5)
-        print("Optional Shortcut:", shortcut.get_shape())
-        print("-"*5)
-        pool += shortcut
-    pool = fixed_padding(inputs=pool)
-    return tf.layers.conv1d(inputs=pool, filters=pool.get_shape()[2]*2, kernel_size=1,
-                            strides=1, padding='valid', use_bias=False)
+        raise ValueError('unsupported depth for VDCNN.')
 
-def fixed_padding(inputs, kernel_size=3):
-    pad_total = kernel_size - 1
-    pad_beg = pad_total // 2
-    pad_end = pad_total - pad_beg
-    padded_inputs = tf.pad(inputs, [[0, 0], [pad_beg, pad_end], [0, 0]])
-    return padded_inputs
+    inputs = Input(shape=(sequence_length, ), name='inputs')
+    embedded_chars = Embedding(input_dim=sequence_length, output_dim=embedding_dim)(inputs)
+    out = Conv1D(filters=64, kernel_size=3, strides=1, padding='same', name='temp_conv')(embedded_chars)
 
-class VDCNN():
-    def __init__(self, num_classes, sequence_max_length=1024, num_quantized_chars=69, embedding_size=16, 
-                 depth=9, downsampling_type='maxpool', use_he_uniform=True, optional_shortcut=False):
+    # Convolutional Block 64
+    for _ in range(num_conv_blocks[0] - 2):
+        out = identity_block(out, filters=64, kernel_size=3, use_bias=use_bias, shortcut=shortcut)
+    out = conv_block(out, filters=64, kernel_size=3, use_bias=use_bias, shortcut=shortcut, 
+                     pool_type=pool_type, sorted=sorted, stage=1)
 
-        # Depth to No. Layers
-        if depth == 9:
-            num_layers = [2,2,2,2]
-        elif depth == 17:
-            num_layers = [4,4,4,4]
-        elif depth == 29:
-            num_layers = [10,10,4,4]
-        elif depth == 49:
-            num_layers = [16,16,10,6]
-        else:
-            raise ValueError('depth=%g is a not a valid setting!' % depth)
+    # Convolutional Block 128
+    for _ in range(num_conv_blocks[1] - 2):
+        out = identity_block(out, filters=128, kernel_size=3, use_bias=use_bias, shortcut=shortcut)
+    out = conv_block(out, filters=128, kernel_size=3, use_bias=use_bias, shortcut=shortcut, 
+                     pool_type=pool_type, sorted=sorted, stage=2)
 
-        # input tensors
-        self.input_x = tf.placeholder(tf.int32, [None, sequence_max_length], name="input_x")
-        self.input_y = tf.placeholder(tf.float32, [None, num_classes], name="input_y")
-        self.is_training =  tf.placeholder(tf.bool)
+    # Convolutional Block 256
+    for _ in range(num_conv_blocks[2] - 2):
+        out = identity_block(out, filters=256, kernel_size=3, use_bias=use_bias, shortcut=shortcut)
+    out = conv_block(out, filters=64, kernel_size=3, use_bias=use_bias, shortcut=shortcut, 
+                     pool_type=pool_type, sorted=sorted, stage=3)
 
-        # Embedding Lookup 16
-        with tf.device('/cpu:0'), tf.name_scope("embedding"):
-            if use_he_uniform:
-                self.embedding_W = tf.get_variable(name='lookup_W', shape=[num_quantized_chars, embedding_size], initializer=tf.keras.initializers.he_uniform())
-            else:
-                self.embedding_W = tf.Variable(tf.random_uniform([num_quantized_chars, embedding_size], -1.0, 1.0),name="embedding_W")
-            self.embedded_characters = tf.nn.embedding_lookup(self.embedding_W, self.input_x)
-            print("-"*20)
-            print("Embedded Lookup:", self.embedded_characters.get_shape())
-            print("-"*20)
+    # Convolutional Block 512
+    for _ in range(num_conv_blocks[3] - 2):
+        out = identity_block(out, filters=512, kernel_size=3, use_bias=use_bias, shortcut=shortcut)
+    out = conv_block(out, filters=64, kernel_size=3, use_bias=use_bias, shortcut=shortcut, 
+                     pool_type=pool_type, sorted=sorted, stage=4)
 
-        self.layers = []
+    # k-max pooling with k = 8
+    out = KMaxPooling(k=8, sorted=sorted)(out)
+    out = Flatten()(out)
 
-        # Temp(First) Conv Layer
-        with tf.variable_scope("temp_conv") as scope: 
-            filter_shape = [3, embedding_size, 64]
-            W = tf.get_variable(name='W_1', shape=filter_shape, 
-                initializer=he_normal,
-                regularizer=regularizer)
-            inputs = tf.nn.conv1d(self.embedded_characters, W, stride=1, padding="SAME")
-            #inputs = tf.nn.relu(inputs)
-        print("Temp Conv", inputs.get_shape())
-        self.layers.append(inputs)
+    # Dense Layers
+    out = Dense(2048, activation='relu')(out)
+    out = Dense(2048, activation='relu')(out)
+    out = Dense(num_classes, activation='softmax')(out)
 
-        # Conv Block 64
-        for i in range(num_layers[0]):
-            if i < num_layers[0] - 1 and optional_shortcut:
-                shortcut = self.layers[-1]
-            else:
-                shortcut = None
-            conv_block = Convolutional_Block(inputs=self.layers[-1], shortcut=shortcut, num_filters=64, is_training=self.is_training, name=str(i+1))
-            self.layers.append(conv_block)
-        pool1 = downsampling(self.layers[-1], downsampling_type=downsampling_type, name='pool1', optional_shortcut=optional_shortcut, shortcut=self.layers[-2])
-        self.layers.append(pool1)
-        print("Pooling:", pool1.get_shape())
+    if input_tensor is not None:
+        inputs = get_source_inputs(input_tensor)
+    else:
+        inputs = inputs
 
-        # Conv Block 128
-        for i in range(num_layers[1]):
-            if i < num_layers[1] - 1 and optional_shortcut:
-                shortcut = self.layers[-1]
-            else:
-                shortcut = None
-            conv_block = Convolutional_Block(inputs=self.layers[-1], shortcut=shortcut, num_filters=128, is_training=self.is_training, name=str(i+1))
-            self.layers.append(conv_block)
-        pool2 = downsampling(self.layers[-1], downsampling_type=downsampling_type, name='pool2', optional_shortcut=optional_shortcut, shortcut=self.layers[-2])
-        self.layers.append(pool2)
-        print("Pooling:", pool2.get_shape())
+    # Create model.
+    model = Model(inputs=inputs, outputs=out, name='VDCNN')
+    return model
 
-        # Conv Block 256
-        for i in range(num_layers[2]):
-            if i < num_layers[2] - 1 and optional_shortcut:
-                shortcut = self.layers[-1]
-            else:
-                shortcut = None
-            conv_block = Convolutional_Block(inputs=self.layers[-1], shortcut=shortcut, num_filters=256, is_training=self.is_training, name=str(i+1))
-            self.layers.append(conv_block)
-        pool3 = downsampling(self.layers[-1], downsampling_type=downsampling_type, name='pool3', optional_shortcut=optional_shortcut, shortcut=self.layers[-2])
-        self.layers.append(pool3)
-        print("Pooling:", pool3.get_shape())
-
-        # Conv Block 512
-        for i in range(num_layers[3]):
-            if i < num_layers[3] - 1 and optional_shortcut:
-                shortcut = self.layers[-1]
-            else:
-                shortcut = None
-            conv_block = Convolutional_Block(inputs=self.layers[-1], shortcut=shortcut, num_filters=512, is_training=self.is_training, name=str(i+1))
-            self.layers.append(conv_block)
-
-        # Extract 8 most features as mentioned in paper
-        self.k_pooled = tf.nn.top_k(tf.transpose(self.layers[-1], [0,2,1]), k=8, name='k_pool', sorted=False)[0]
-        print("8-maxpooling:", self.k_pooled.get_shape())
-        self.flatten = tf.reshape(self.k_pooled, (-1, 512*8))
-
-        # fc1
-        with tf.variable_scope('fc1'):
-            w = tf.get_variable('w', [self.flatten.get_shape()[1], 2048], initializer=he_normal,
-                regularizer=regularizer)
-            b = tf.get_variable('b', [2048], initializer=tf.constant_initializer(1.0))
-            out = tf.matmul(self.flatten, w) + b
-            self.fc1 = tf.nn.relu(out)
-
-        # fc2
-        with tf.variable_scope('fc2'):
-            w = tf.get_variable('w', [self.fc1.get_shape()[1], 2048], initializer=he_normal,
-                regularizer=regularizer)
-            b = tf.get_variable('b', [2048], initializer=tf.constant_initializer(1.0))
-            out = tf.matmul(self.fc1, w) + b
-            self.fc2 = tf.nn.relu(out)
-
-        # fc3
-        with tf.variable_scope('fc3'):
-            w = tf.get_variable('w', [self.fc2.get_shape()[1], num_classes], initializer=he_normal,
-                regularizer=regularizer)
-            b = tf.get_variable('b', [num_classes], initializer=tf.constant_initializer(1.0))
-            self.fc3 = tf.matmul(self.fc2, w) + b
-
-        # Calculate Mean cross-entropy loss
-        with tf.name_scope("loss"):
-            self.predictions = tf.argmax(self.fc3, 1, name="predictions")
-            losses = tf.nn.softmax_cross_entropy_with_logits(logits=self.fc3, labels=self.input_y)
-            regularization_losses = tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES)
-            self.loss = tf.reduce_mean(losses) + sum(regularization_losses)
-
-        # Accuracy
-        with tf.name_scope("accuracy"):
-            correct_predictions = tf.equal(self.predictions, tf.argmax(self.input_y, 1))
-            self.accuracy = tf.reduce_mean(tf.cast(correct_predictions, "float"), name="accuracy")
+if __name__ == "__main__":
+    model = VDCNN(10, depth=9, shortcut=False, pool_type='k_max')
+    model.summary()
