@@ -22,15 +22,19 @@ def conv_block(inputs, filters, kernel_size=3, use_bias=False, shortcut=False,
 
     conv2 = Conv1D(filters=filters, kernel_size=kernel_size, strides=1, padding='same')(relu1)
     out = BatchNormalization()(conv2)
-    out = downsample(out, pool_type=pool_type, sorted=sorted, stage=stage)
 
     if shortcut:
         residual = Conv1D(filters=filters, kernel_size=1, strides=2, name='shortcut_conv1d_%d' % stage)(inputs)
         residual = BatchNormalization(name='shortcut_batch_normalization_%d' % stage)(residual)
+        out = downsample(out, pool_type=pool_type, sorted=sorted, stage=stage)
         out = Add()([out, residual])
-    out = Activation('relu')(out)
-    out = Conv1D(filters=2*filters, kernel_size=1, strides=1, padding='same', name='1_1_conv_%d' % stage)(out)
-    out = BatchNormalization(name='1_1_batch_normalization_%d' % stage)(out)
+        out = Activation('relu')(out)
+    else:
+        out = Activation('relu')(out)
+        out = downsample(out, pool_type=pool_type, sorted=sorted, stage=stage)
+    if pool_type is not None:
+        out = Conv1D(filters=2*filters, kernel_size=1, strides=1, padding='same', name='1_1_conv_%d' % stage)(out)
+        out = BatchNormalization(name='1_1_batch_normalization_%d' % stage)(out)
     return out
 
 def downsample(inputs, pool_type='max', sorted=True, stage=1):
@@ -42,8 +46,11 @@ def downsample(inputs, pool_type='max', sorted=True, stage=1):
     elif pool_type == 'conv':
         out = Conv1D(filters=inputs._keras_shape[-1], kernel_size=3, strides=2, padding='same', name='pool_%d' % stage)(inputs)
         out = BatchNormalization()(out)
+    elif pool_type is None:
+        out = inputs
+    else:
+        raise ValueError('unsupported pooling type!')
     return out
-
 
 def VDCNN(num_classes, depth=9, sequence_length=1024, embedding_dim=16, 
           shortcut=False, pool_type='max', sorted=True, use_bias=False, input_tensor=None):
@@ -63,31 +70,31 @@ def VDCNN(num_classes, depth=9, sequence_length=1024, embedding_dim=16,
     out = Conv1D(filters=64, kernel_size=3, strides=1, padding='same', name='temp_conv')(embedded_chars)
 
     # Convolutional Block 64
-    for _ in range(num_conv_blocks[0] - 2):
+    for _ in range(num_conv_blocks[0] - 1):
         out = identity_block(out, filters=64, kernel_size=3, use_bias=use_bias, shortcut=shortcut)
     out = conv_block(out, filters=64, kernel_size=3, use_bias=use_bias, shortcut=shortcut, 
                      pool_type=pool_type, sorted=sorted, stage=1)
 
     # Convolutional Block 128
-    for _ in range(num_conv_blocks[1] - 2):
+    for _ in range(num_conv_blocks[1] - 1):
         out = identity_block(out, filters=128, kernel_size=3, use_bias=use_bias, shortcut=shortcut)
     out = conv_block(out, filters=128, kernel_size=3, use_bias=use_bias, shortcut=shortcut, 
                      pool_type=pool_type, sorted=sorted, stage=2)
 
     # Convolutional Block 256
-    for _ in range(num_conv_blocks[2] - 2):
+    for _ in range(num_conv_blocks[2] - 1):
         out = identity_block(out, filters=256, kernel_size=3, use_bias=use_bias, shortcut=shortcut)
-    out = conv_block(out, filters=64, kernel_size=3, use_bias=use_bias, shortcut=shortcut, 
+    out = conv_block(out, filters=256, kernel_size=3, use_bias=use_bias, shortcut=shortcut, 
                      pool_type=pool_type, sorted=sorted, stage=3)
 
     # Convolutional Block 512
-    for _ in range(num_conv_blocks[3] - 2):
+    for _ in range(num_conv_blocks[3] - 1):
         out = identity_block(out, filters=512, kernel_size=3, use_bias=use_bias, shortcut=shortcut)
-    out = conv_block(out, filters=64, kernel_size=3, use_bias=use_bias, shortcut=shortcut, 
-                     pool_type=pool_type, sorted=sorted, stage=4)
+    out = conv_block(out, filters=512, kernel_size=3, use_bias=use_bias, shortcut=False, 
+                     pool_type=None, stage=4)
 
     # k-max pooling with k = 8
-    out = KMaxPooling(k=8, sorted=sorted)(out)
+    out = KMaxPooling(k=8, sorted=True)(out)
     out = Flatten()(out)
 
     # Dense Layers
@@ -105,5 +112,5 @@ def VDCNN(num_classes, depth=9, sequence_length=1024, embedding_dim=16,
     return model
 
 if __name__ == "__main__":
-    model = VDCNN(10, depth=9, shortcut=False, pool_type='k_max')
+    model = VDCNN(10, depth=9, shortcut=False, pool_type='max')
     model.summary()

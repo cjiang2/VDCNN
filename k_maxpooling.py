@@ -14,16 +14,14 @@ class KMaxPooling(Layer):
         self.sorted = sorted
 
     def compute_output_shape(self, input_shape):
-        k = int(input_shape[1]/2)
-        return (input_shape[0], k, input_shape[2])
+        return (input_shape[0], self.k, input_shape[2])
 
     def call(self, inputs):
-        
         # swap last two dimensions since top_k will be applied along the last dimension
-        shifted_input = tf.transpose(inputs, [0, 2, 1])
+        shifted_inputs = tf.transpose(inputs, [0, 2, 1])
         
         # extract top_k, returns two tensors [values, indices]
-        top_k = tf.nn.top_k(shifted_input, k=self.k, sorted=self.sorted)[0]
+        top_k = tf.nn.top_k(shifted_inputs, k=self.k, sorted=self.sorted)[0]
         
         # return flattened output
         return tf.transpose(top_k, [0,2,1])

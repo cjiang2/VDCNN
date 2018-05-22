@@ -2,11 +2,11 @@
 Tensorflow Implementation of Very Deep Convolutional Neural Network for Text Classification.
 
 ## Note
-This project is a simple Tensorflow implementation of VDCNN model proposed by Conneau et al. [Paper](https://arxiv.org/abs/1606.01781) for VDCNN.
+This repository is a simple Keras implementation of VDCNN model proposed by Conneau et al. [Paper](https://arxiv.org/abs/1606.01781) for VDCNN.
 
 Note: Temporal batch norm not implemented. "Temp batch norm applies same kind of regularization as batch norm, except that the activations in a mini-batch are jointly normalized over temporal instead of spatial locations." Right now this project is using regular Tensorflow batch normalization only.
 
-See another [VDCNN implementation in Pytorch](https://github.com/ArdalanM/nlp-benchmarks) if you feel more comfortable with Pytorch, in which the author is having detailed reproduced results as well. 
+See another [VDCNN implementation in Pytorch](https://github.com/ArdalanM/nlp-benchmarks) if you feel more comfortable with Pytorch, in which the author is having detailed reproduced results as well. See the original [Tensorflow implementation](https://github.com/zonetrooper32/VDCNN/tree/tensorflow_version) as well.
 
 It should be noted that the VDCNN paper states that the implementation is done originally in Touch 7.
 
@@ -14,6 +14,7 @@ It should be noted that the VDCNN paper states that the implementation is done o
 
  - Python3
  - Tensorflow 1.0 or higher
+ - keras 2.1.5 or higher
  - Numpy
 
 ## Datasets
@@ -43,7 +44,7 @@ TODO: Testing of more NLP benchmark datasets and presenting detailed results.
 
 Results are reported as follows:  (i) / (ii)
  - (i): Test set accuracy reported by the paper (acc = 100% - error_rate)
- - (ii): Test set accuracy reproduced by this Tensorflow implementation
+ - (ii): Test set accuracy reproduced by this Keras implementation
 
 Results for Max Pooling:
 
@@ -53,7 +54,7 @@ Results for Max Pooling:
 |    17 layers    |  91.12 / xx.xxxx  |  98.60 / xx.xxxx  |  96.46 / xx.xxxx  |
 |    29 layers    |  91.27 / xx.xxxx  |  98.71 / xx.xxxx  |  96.64 / xx.xxxx  |
 
-Results for K-max Pooling(k = 8):
+Results for K-max Pooling:
 
 |      Depth      |      ag_news      |      DBPedia      |     Sogou News    |
 |:---------------:|:-----------------:|:-----------------:|:-----------------:|
@@ -61,14 +62,37 @@ Results for K-max Pooling(k = 8):
 |    17 layers    |  90.61 / xx.xxxx  |  98.39 / xx.xxxx  |  96.49 / xx.xxxx  |
 |    29 layers    |  91.33 / xx.xxxx  |  98.59 / xx.xxxx  |  96.82 / xx.xxxx  |
 
-## TODOs
+Results for Conv downsampling:
 
- - (i): Optional Shortcut
- - (ii): Three types of downsampling between blocks: 
-         (a) maxpooling(Done)
-         (b) k-maxpooling(Tensorflow doesn't support this operation natively so I'll keep looking for a way :( )
-         (c) Convolution with Stride 2
- - (iii) Testing for all datasets and a detailed accuracy for 9, 17 and 28 depth.
+|      Depth      |      ag_news      |      DBPedia      |     Sogou News    |
+|:---------------:|:-----------------:|:-----------------:|:-----------------:|
+|     9 layers    |  90.17 / xx.xxxx  |  98.44 / xx.xxxx  |  96.42 / xx.xxxx  |  
+|    17 layers    |  90.61 / xx.xxxx  |  98.39 / xx.xxxx  |  96.49 / xx.xxxx  |
+|    29 layers    |  91.33 / xx.xxxx  |  98.59 / xx.xxxx  |  96.82 / xx.xxxx  |
+
+Results for Max Pooling with Shortcut:
+
+|      Depth      |      ag_news      |      DBPedia      |     Sogou News    |
+|:---------------:|:-----------------:|:-----------------:|:-----------------:|
+|     9 layers    |  90.83 / xx.xxxx  |  98.65 / xx.xxxx  |  96.30 / xx.xxxx  |  
+|    17 layers    |  91.12 / xx.xxxx  |  98.60 / xx.xxxx  |  96.46 / xx.xxxx  |
+|    29 layers    |  91.27 / xx.xxxx  |  98.71 / xx.xxxx  |  96.64 / xx.xxxx  |
+
+Results for K-max Pooling with Shortcut:
+
+|      Depth      |      ag_news      |      DBPedia      |     Sogou News    |
+|:---------------:|:-----------------:|:-----------------:|:-----------------:|
+|     9 layers    |  90.17 / xx.xxxx  |  98.44 / xx.xxxx  |  96.42 / xx.xxxx  |  
+|    17 layers    |  90.61 / xx.xxxx  |  98.39 / xx.xxxx  |  96.49 / xx.xxxx  |
+|    29 layers    |  91.33 / xx.xxxx  |  98.59 / xx.xxxx  |  96.82 / xx.xxxx  |
+
+Results for Conv downsampling with Shortcut:
+
+|      Depth      |      ag_news      |      DBPedia      |     Sogou News    |
+|:---------------:|:-----------------:|:-----------------:|:-----------------:|
+|     9 layers    |  90.17 / xx.xxxx  |  98.44 / xx.xxxx  |  96.42 / xx.xxxx  |  
+|    17 layers    |  90.61 / xx.xxxx  |  98.39 / xx.xxxx  |  96.49 / xx.xxxx  |
+|    29 layers    |  91.33 / xx.xxxx  |  98.59 / xx.xxxx  |  96.82 / xx.xxxx  |
 
 ## Reference
 [Original preprocessing codes and VDCNN Implementation By geduo15](https://github.com/geduo15/Very-Deep-Convolutional-Networks-for-Natural-Language-Processing-in-tensorflow)

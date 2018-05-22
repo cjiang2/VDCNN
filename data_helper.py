@@ -1,3 +1,6 @@
+"""
+data helper to preprocess csv format text dataset
+"""
 import csv
 import numpy as np
 import random
