@@ -1,23 +1,20 @@
-# VDCNN
-Tensorflow Implementation of Very Deep Convolutional Neural Network for Text Classification.
+# VDCNN #
+*Tensorflow 2.0 Implementation of Very Deep Convolutional Neural Network for Text Classification.*
 
-## Note
-This repository is a simple Keras implementation of VDCNN model proposed by Conneau et al. [Paper](https://arxiv.org/abs/1606.01781) for VDCNN.
+## Note ##
+This repository is a simple Tensorflow 2.0 implementation of the VDCNN model proposed by Conneau et al. in [their 2016 paper](https://arxiv.org/abs/1606.01781). It is based off of [this Keras implementation by zonetrooper32](https://github.com/zonetrooper32/VDCNN).
 
 Note: Temporal batch norm not implemented. "Temp batch norm applies same kind of regularization as batch norm, except that the activations in a mini-batch are jointly normalized over temporal instead of spatial locations." Right now this project is using regular Tensorflow batch normalization only.
 
-See another [VDCNN implementation in Pytorch](https://github.com/ArdalanM/nlp-benchmarks) if you feel more comfortable with Pytorch, in which the author is having detailed reproduced results as well. See the original [Tensorflow implementation](https://github.com/zonetrooper32/VDCNN/tree/tensorflow_version) as well.
-
 It should be noted that the VDCNN paper states that the implementation is done originally in Touch 7.
 
-## Prerequisites
+## Prerequisites ##
 
- - Python3
- - Tensorflow 1.0 or higher
- - keras 2.1.5 or higher
- - Numpy
+ - Python 3
+ - Tensorflow 2.0
+ - numpy
 
-## Datasets
+## Datasets ##
 The original paper tests several NLP datasets, including DBPedia, AG's News, Sogou News and etc. "data_helper.py" operates with CSV format train and test files.
 
 Downloads of those NLP text classification datasets can be found here (Many thanks to ArdalanM):
@@ -33,68 +30,13 @@ Downloads of those NLP text classification datasets can be found here (Many than
 | Amazon Review Full     |    5    |   3 000 000   |    650 000   |[link](https://drive.google.com/drive/u/0/folders/0Bz8a_Dbh9Qhbfll6bVpmNUtUcFdjYmF2SEpmZUZUcVNiMUw1TWN6RDV3a0JHT3kxLVhVR2M)|
 | Amazon Review Polarity |    2    |   3 600 000   |    400 000   |[link](https://drive.google.com/drive/u/0/folders/0Bz8a_Dbh9Qhbfll6bVpmNUtUcFdjYmF2SEpmZUZUcVNiMUw1TWN6RDV3a0JHT3kxLVhVR2M)|
 
-## Parameters Setting
+## Parameters Setting ##
 For all versions of VDCNN, training and testing is done on a Ubuntu 16.04 Server with Tesla K80, with Momentum Optimizer of decay 0.9, exponential learning rate decay, a evaluation interval of 25, a batch size of 128. Weights are initialized by He initialization proposed in [He et al](https://arxiv.org/pdf/1502.01852). Batch normalizations are using a decay of 0.999.
 
-(There are tons of factors that can influence the testing accuracy of the model, but overall this project should be good to go. Training of a deep CNN model is not a easy task, patience is everything. -_-)
+## References ##
 
-## Experiments
+[Keras implementation by zonetrooper32](https://github.com/zonetrooper32/VDCNN)
 
-TODO: Testing of more NLP benchmark datasets and presenting detailed results.
-
-Results are reported as follows:  (i) / (ii)
- - (i): Test set accuracy reported by the paper (acc = 100% - error_rate)
- - (ii): Test set accuracy reproduced by this Keras implementation
-
-Results for Max Pooling:
-
-|      Depth      |      ag_news      |      DBPedia      |     Sogou News    |
-|:---------------:|:-----------------:|:-----------------:|:-----------------:|
-|     9 layers    |  90.83 / xx.xxxx  |  98.65 / xx.xxxx  |  96.30 / xx.xxxx  |  
-|    17 layers    |  91.12 / xx.xxxx  |  98.60 / xx.xxxx  |  96.46 / xx.xxxx  |
-|    29 layers    |  91.27 / xx.xxxx  |  98.71 / xx.xxxx  |  96.64 / xx.xxxx  |
-
-Results for K-max Pooling:
-
-|      Depth      |      ag_news      |      DBPedia      |     Sogou News    |
-|:---------------:|:-----------------:|:-----------------:|:-----------------:|
-|     9 layers    |  90.17 / xx.xxxx  |  98.44 / xx.xxxx  |  96.42 / xx.xxxx  |  
-|    17 layers    |  90.61 / xx.xxxx  |  98.39 / xx.xxxx  |  96.49 / xx.xxxx  |
-|    29 layers    |  91.33 / xx.xxxx  |  98.59 / xx.xxxx  |  96.82 / xx.xxxx  |
-
-Results for Conv downsampling:
-
-|      Depth      |      ag_news      |      DBPedia      |     Sogou News    |
-|:---------------:|:-----------------:|:-----------------:|:-----------------:|
-|     9 layers    |  90.17 / xx.xxxx  |  98.44 / xx.xxxx  |  96.42 / xx.xxxx  |  
-|    17 layers    |  90.61 / xx.xxxx  |  98.39 / xx.xxxx  |  96.49 / xx.xxxx  |
-|    29 layers    |  91.33 / xx.xxxx  |  98.59 / xx.xxxx  |  96.82 / xx.xxxx  |
-
-Results for Max Pooling with Shortcut:
-
-|      Depth      |      ag_news      |      DBPedia      |     Sogou News    |
-|:---------------:|:-----------------:|:-----------------:|:-----------------:|
-|     9 layers    |  90.83 / xx.xxxx  |  98.65 / xx.xxxx  |  96.30 / xx.xxxx  |  
-|    17 layers    |  91.12 / xx.xxxx  |  98.60 / xx.xxxx  |  96.46 / xx.xxxx  |
-|    29 layers    |  91.27 / xx.xxxx  |  98.71 / xx.xxxx  |  96.64 / xx.xxxx  |
-
-Results for K-max Pooling with Shortcut:
-
-|      Depth      |      ag_news      |      DBPedia      |     Sogou News    |
-|:---------------:|:-----------------:|:-----------------:|:-----------------:|
-|     9 layers    |  90.17 / xx.xxxx  |  98.44 / xx.xxxx  |  96.42 / xx.xxxx  |  
-|    17 layers    |  90.61 / xx.xxxx  |  98.39 / xx.xxxx  |  96.49 / xx.xxxx  |
-|    29 layers    |  91.33 / xx.xxxx  |  98.59 / xx.xxxx  |  96.82 / xx.xxxx  |
-
-Results for Conv downsampling with Shortcut:
-
-|      Depth      |      ag_news      |      DBPedia      |     Sogou News    |
-|:---------------:|:-----------------:|:-----------------:|:-----------------:|
-|     9 layers    |  90.17 / xx.xxxx  |  98.44 / xx.xxxx  |  96.42 / xx.xxxx  |  
-|    17 layers    |  90.61 / xx.xxxx  |  98.39 / xx.xxxx  |  96.49 / xx.xxxx  |
-|    29 layers    |  91.33 / xx.xxxx  |  98.59 / xx.xxxx  |  96.82 / xx.xxxx  |
-
-## Reference
 [Original preprocessing codes and VDCNN Implementation By geduo15](https://github.com/geduo15/Very-Deep-Convolutional-Networks-for-Natural-Language-Processing-in-tensorflow)
 
 [Train Script and data iterator from Convolutional Neural Network for Text Classification](https://github.com/dennybritz/cnn-text-classification-tf)

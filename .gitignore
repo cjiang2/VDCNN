@@ -108,3 +108,8 @@ venv.bak/
 
 # Dataset
 data/
+checkpoints/
+logs/
+
+# Model
+vdcnn_model.json
