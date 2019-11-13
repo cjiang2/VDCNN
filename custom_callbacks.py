@@ -1,21 +1,24 @@
 """
 Some custom callback function to strengthen up training code and tensorboard
 """
-import numpy as np
-import keras
-import tensorflow as tf
 import datetime
 
+import tensorflow as tf
 
-class loss_history(keras.callbacks.Callback):
+
+class LossHistory(tf.keras.callbacks.Callback):
     """
     Record loss history by step in Tensorboard
     """
 
-    def __init__(self, model, tensorboard, names=["acc", "loss"]):
+    def __init__(self, model, tensorboard, names=None):
         self.model = model
         self.tensorboard = tensorboard
-        self.names = names
+        if names is None:
+            self.names = ["acc", "loss"]
+        else:
+            self.names = names
+        self.step = 0
 
     def on_train_begin(self, logs={}):
         self.step = 0
@@ -23,15 +26,14 @@ class loss_history(keras.callbacks.Callback):
     def on_batch_end(self, batch, logs={}):
         self.step += 1
         for name in self.names:
-            summary = tf.Summary()
-            summary_value = summary.value.add()
-            summary_value.simple_value = logs[name]
-            summary_value.tag = name + "_step"
-            self.tensorboard.writer.add_summary(summary, self.step)
-            self.tensorboard.writer.flush()
+            writer = tf.summary.create_file_writer("/tmp/mylogs")
+            with writer.as_default():
+                tag = name + "_step"
+                tf.summary.scalar(tag, logs[name], step=self.step)
+                writer.flush()
 
 
-class evaluate_step(keras.callbacks.Callback):
+class EvaluateStep(tf.keras.callbacks.Callback):
     """
     Custom callback function to enable evaluation per step
     """
@@ -47,6 +49,8 @@ class evaluate_step(keras.callbacks.Callback):
         self.checkpointer = checkpointer
         self.tensorboard = tensorboard
         self.max_step = 0
+        self.step = 0
+        self.epoch = 0
 
     def on_train_begin(self, logs={}):
         self.step = 0
@@ -80,10 +84,8 @@ class evaluate_step(keras.callbacks.Callback):
                 print()
             if self.tensorboard is not None:
                 names = ["val_loss_step", "val_acc_step"]
-                for i in range(len(names)):
-                    summary = tf.Summary()
-                    summary_value = summary.value.add()
-                    summary_value.simple_value = logs[i]
-                    summary_value.tag = names[i]
-                    self.tensorboard.writer.add_summary(summary, self.step)
-                    self.tensorboard.writer.flush()
+                for idx, val in enumerate(names):
+                    writer = tf.summary.create_file_writer("/tmp/mylogs")
+                    with writer.as_default():
+                        tf.summary.scalar(val, logs[idx], step=self.step)
+                        writer.flush()
