@@ -1,48 +1,42 @@
 """
 Training Script for VDCNN Text
 """
-import keras
-from keras.models import Sequential, load_model, model_from_json
-from keras.optimizers import SGD
-from keras.callbacks import ModelCheckpoint, TensorBoard
-from keras import losses
-import keras.backend as K
-import numpy as np
-from absl import flags
-import h5py
-import math
 import sys
 import datetime
 
-from vdcnn import *
-from data_helper import *
+import tensorflow as tf
+from absl import flags
+
 import custom_callbacks
+from vdcnn import VDCNN
+from data_helper import DataHelper
 
 # Parameters settings
 # Data loading params
-tf.flags.DEFINE_string(
-    "database_path", "dataset/ag_news_csv/", "Path for the dataset to be used."
+flags.DEFINE_string(
+    "database_path", "data/ag_news_csv/", "Path for the dataset to be used."
 )
 
 # Model Hyperparameters
-tf.flags.DEFINE_integer("sequence_length", 1024, "Sequence Max Length (default: 1024)")
-tf.flags.DEFINE_string(
+flags.DEFINE_integer("sequence_length", 1024, "Sequence Max Length (default: 1024)")
+flags.DEFINE_string(
     "pool_type",
     "max",
-    "Types of downsampling methods, use either three of max (maxpool), k_max (k-maxpool) or conv (linear) (default: 'max')",
+    "Types of downsampling methods, use either three of max (maxpool), "
+    "k_max (k-maxpool) or conv (linear) (default: 'max')",
 )
-tf.flags.DEFINE_integer(
+flags.DEFINE_integer(
     "depth", 9, "Depth for VDCNN, use either 9, 17, 29 or 47 (default: 9)"
 )
-tf.flags.DEFINE_boolean("shortcut", False, "Use optional shortcut (default: False)")
-tf.flags.DEFINE_boolean("sorted", False, "Sort during k-max pooling (default: False)")
-tf.flags.DEFINE_boolean(
+flags.DEFINE_boolean("shortcut", False, "Use optional shortcut (default: False)")
+flags.DEFINE_boolean("sort", False, "Sort during k-max pooling (default: False)")
+flags.DEFINE_boolean(
     "use_bias", False, "Use bias for all conv1d layers (default: False)"
 )
 
 # Training parameters
 flags.DEFINE_integer("batch_size", 64, "Batch Size (default: 64)")
-flags.DEFINE_integer("num_epochs", 100, "Number of training epochs (default: 100)")
+flags.DEFINE_integer("num_epochs", 100, "Number of training epochs")
 flags.DEFINE_integer(
     "evaluate_every",
     100,
@@ -57,12 +51,11 @@ for attr, value in sorted(FLAGS.__flags.items()):
     print("{}={}".format(attr, value.value))
 print("")
 
-data_helper = data_helper(sequence_max_length=FLAGS.sequence_length)
+data_helper = DataHelper(sequence_max_length=FLAGS.sequence_length)
 
 
 def preprocess():
     # Data Preparation
-    # ==================================================
 
     # Load data
     print("Loading data...")
@@ -82,42 +75,36 @@ def train(x_train, y_train, x_test, y_test):
         sequence_length=FLAGS.sequence_length,
         shortcut=FLAGS.shortcut,
         pool_type=FLAGS.pool_type,
-        sorted=FLAGS.sorted,
+        sort=FLAGS.sort,
         use_bias=FLAGS.use_bias,
     )
 
     model.compile(
-        optimizer=SGD(lr=0.01, momentum=0.9),
+        optimizer=tf.keras.optimizers.SGD(lr=0.01, momentum=0.9),
         loss="categorical_crossentropy",
-        metrics=["accuracy"],
+        metrics=["acc"],
     )
-
-    model_json = model.to_json()
-    with open("vdcnn_model.json", "w") as json_file:
-        json_file.write(model_json)  # Save model architecture
-    time_str = datetime.datetime.now().isoformat()
-    print("{}: Model saved as json.".format(time_str))
-    print("")
 
     # Trainer
     # Tensorboard and extra callback to support steps history
-    tensorboard = TensorBoard(
+    tensorboard = tf.keras.callbacks.TensorBoard(
         log_dir="./logs",
         histogram_freq=50,
         batch_size=FLAGS.batch_size,
         write_graph=True,
         write_images=True,
     )
-    checkpointer = ModelCheckpoint(
-        filepath="./checkpoints/vdcnn_weights_val_acc_{val_acc:.4f}.h5",
+    checkpointer = tf.keras.callbacks.ModelCheckpoint(
+        # filepath="./checkpoints/vdcnn_weights_val_acc_{val_acc:.4f}.h5",
+        filepath="./checkpoints/vdcnn_weights.h5",
         period=1,
         verbose=1,
         save_best_only=True,
         mode="max",
         monitor="val_acc",
     )
-    loss_history = custom_callbacks.loss_history(model, tensorboard)
-    evaluate_step = custom_callbacks.evaluate_step(
+    loss_history = custom_callbacks.LossHistory(model, tensorboard)
+    evaluate_step = custom_callbacks.EvaluateStep(
         model,
         checkpointer,
         tensorboard,
@@ -140,11 +127,23 @@ def train(x_train, y_train, x_test, y_test):
     print("-" * 30)
     time_str = datetime.datetime.now().isoformat()
     print("{}: Done training.".format(time_str))
-    K.clear_session()
+
+    model_json = model.to_json()
+    with open("vdcnn_model.json", "w") as json_file:
+        json_file.write(model_json)  # Save model architecture
+    time_str = datetime.datetime.now().isoformat()
+    print("{}: Model saved as json.".format(time_str))
+    print("")
+
+    tf.keras.backend.clear_session()
     print("-" * 30)
     print()
 
 
-if __name__ == "__main__":
+def main():
     x_train, y_train, x_test, y_test = preprocess()
     train(x_train, y_train, x_test, y_test)
+
+
+if __name__ == "__main__":
+    main()

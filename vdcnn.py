@@ -1,33 +1,21 @@
-import keras
-from keras.models import Model
-from keras.layers import (
-    Input,
-    Embedding,
-    Conv1D,
-    BatchNormalization,
-    Activation,
-    Add,
-    MaxPooling1D,
-    Dense,
-    Flatten,
-)
-from keras.engine.topology import get_source_inputs
-from k_maxpooling import *
+import tensorflow as tf
+
+from k_maxpooling import KMaxPooling
 
 
 def identity_block(inputs, filters, kernel_size=3, use_bias=False, shortcut=False):
-    conv1 = Conv1D(filters=filters, kernel_size=kernel_size, strides=1, padding="same")(
-        inputs
-    )
-    bn1 = BatchNormalization()(conv1)
-    relu = Activation("relu")(bn1)
-    conv2 = Conv1D(filters=filters, kernel_size=kernel_size, strides=1, padding="same")(
-        relu
-    )
-    out = BatchNormalization()(conv2)
+    conv1 = tf.keras.layers.Conv1D(
+        filters=filters, kernel_size=kernel_size, strides=1, padding="same"
+    )(inputs)
+    bn1 = tf.keras.layers.BatchNormalization()(conv1)
+    relu = tf.keras.activations.relu(bn1)
+    conv2 = tf.keras.layers.Conv1D(
+        filters=filters, kernel_size=kernel_size, strides=1, padding="same"
+    )(relu)
+    out = tf.keras.layers.BatchNormalization()(conv2)
     if shortcut:
-        out = Add()([out, inputs])
-    return Activation("relu")(out)
+        out = tf.keras.layers.Add()([out, inputs])
+    return tf.keras.activations.relu(out)
 
 
 def conv_block(
@@ -37,62 +25,64 @@ def conv_block(
     use_bias=False,
     shortcut=False,
     pool_type="max",
-    sorted=True,
+    sort=True,
     stage=1,
 ):
-    conv1 = Conv1D(filters=filters, kernel_size=kernel_size, strides=1, padding="same")(
-        inputs
-    )
-    bn1 = BatchNormalization()(conv1)
-    relu1 = Activation("relu")(bn1)
+    conv1 = tf.keras.layers.Conv1D(
+        filters=filters, kernel_size=kernel_size, strides=1, padding="same"
+    )(inputs)
+    bn1 = tf.keras.layers.BatchNormalization()(conv1)
+    relu1 = tf.keras.activations.relu(bn1)
 
-    conv2 = Conv1D(filters=filters, kernel_size=kernel_size, strides=1, padding="same")(
-        relu1
-    )
-    out = BatchNormalization()(conv2)
+    conv2 = tf.keras.layers.Conv1D(
+        filters=filters, kernel_size=kernel_size, strides=1, padding="same"
+    )(relu1)
+    out = tf.keras.layers.BatchNormalization()(conv2)
 
     if shortcut:
-        residual = Conv1D(
+        residual = tf.keras.layers.Conv1D(
             filters=filters, kernel_size=1, strides=2, name="shortcut_conv1d_%d" % stage
         )(inputs)
-        residual = BatchNormalization(name="shortcut_batch_normalization_%d" % stage)(
-            residual
-        )
-        out = downsample(out, pool_type=pool_type, sorted=sorted, stage=stage)
-        out = Add()([out, residual])
-        out = Activation("relu")(out)
+        residual = tf.keras.layers.BatchNormalization(
+            name="shortcut_batch_normalization_%d" % stage
+        )(residual)
+        out = downsample(out, pool_type=pool_type, sort=sort, stage=stage)
+        out = tf.keras.layers.Add()([out, residual])
+        out = tf.keras.activations.relu(out)
     else:
-        out = Activation("relu")(out)
-        out = downsample(out, pool_type=pool_type, sorted=sorted, stage=stage)
+        out = tf.keras.activations.relu(out)
+        out = downsample(out, pool_type=pool_type, sort=sort, stage=stage)
     if pool_type is not None:
-        out = Conv1D(
+        out = tf.keras.layers.Conv1D(
             filters=2 * filters,
             kernel_size=1,
             strides=1,
             padding="same",
             name="1_1_conv_%d" % stage,
         )(out)
-        out = BatchNormalization(name="1_1_batch_normalization_%d" % stage)(out)
+        out = tf.keras.layers.BatchNormalization(
+            name="1_1_batch_normalization_%d" % stage
+        )(out)
     return out
 
 
-def downsample(inputs, pool_type="max", sorted=True, stage=1):
+def downsample(inputs, pool_type="max", sort=True, stage=1):
     if pool_type == "max":
-        out = MaxPooling1D(
+        out = tf.keras.layers.MaxPooling1D(
             pool_size=3, strides=2, padding="same", name="pool_%d" % stage
         )(inputs)
     elif pool_type == "k_max":
         k = int(inputs._keras_shape[1] / 2)
-        out = KMaxPooling(k=k, sorted=sorted, name="pool_%d" % stage)(inputs)
+        out = KMaxPooling(k=k, sort=sort, name="pool_%d" % stage)(inputs)
     elif pool_type == "conv":
-        out = Conv1D(
+        out = tf.keras.layers.Conv1D(
             filters=inputs._keras_shape[-1],
             kernel_size=3,
             strides=2,
             padding="same",
             name="pool_%d" % stage,
         )(inputs)
-        out = BatchNormalization()(out)
+        out = tf.keras.layers.BatchNormalization()(out)
     elif pool_type is None:
         out = inputs
     else:
@@ -107,7 +97,7 @@ def VDCNN(
     embedding_dim=16,
     shortcut=False,
     pool_type="max",
-    sorted=True,
+    sort=True,
     use_bias=False,
     input_tensor=None,
 ):
@@ -122,11 +112,11 @@ def VDCNN(
     else:
         raise ValueError("unsupported depth for VDCNN.")
 
-    inputs = Input(shape=(sequence_length,), name="inputs")
-    embedded_chars = Embedding(input_dim=sequence_length, output_dim=embedding_dim)(
-        inputs
-    )
-    out = Conv1D(
+    inputs = tf.keras.Input(shape=(sequence_length,), name="inputs")
+    embedded_chars = tf.keras.layers.Embedding(
+        input_dim=sequence_length, output_dim=embedding_dim
+    )(inputs)
+    out = tf.keras.layers.Conv1D(
         filters=64, kernel_size=3, strides=1, padding="same", name="temp_conv"
     )(embedded_chars)
 
@@ -142,7 +132,7 @@ def VDCNN(
         use_bias=use_bias,
         shortcut=shortcut,
         pool_type=pool_type,
-        sorted=sorted,
+        sort=sort,
         stage=1,
     )
 
@@ -158,7 +148,7 @@ def VDCNN(
         use_bias=use_bias,
         shortcut=shortcut,
         pool_type=pool_type,
-        sorted=sorted,
+        sort=sort,
         stage=2,
     )
 
@@ -174,7 +164,7 @@ def VDCNN(
         use_bias=use_bias,
         shortcut=shortcut,
         pool_type=pool_type,
-        sorted=sorted,
+        sort=sort,
         stage=3,
     )
 
@@ -194,21 +184,21 @@ def VDCNN(
     )
 
     # k-max pooling with k = 8
-    out = KMaxPooling(k=8, sorted=True)(out)
-    out = Flatten()(out)
+    out = KMaxPooling(k=8, sort=True)(out)
+    out = tf.keras.layers.Flatten()(out)
 
     # Dense Layers
-    out = Dense(2048, activation="relu")(out)
-    out = Dense(2048, activation="relu")(out)
-    out = Dense(num_classes, activation="softmax")(out)
+    out = tf.keras.layers.Dense(2048, activation="relu")(out)
+    out = tf.keras.layers.Dense(2048, activation="relu")(out)
+    out = tf.keras.layers.Dense(num_classes, activation="softmax")(out)
 
     if input_tensor is not None:
-        inputs = get_source_inputs(input_tensor)
+        inputs = tf.keras.get_source_inputs(input_tensor)
     else:
         inputs = inputs
 
     # Create model.
-    model = Model(inputs=inputs, outputs=out, name="VDCNN")
+    model = tf.keras.Model(inputs=inputs, outputs=out, name="VDCNN")
     return model
 
 
