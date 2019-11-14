@@ -2,11 +2,11 @@
 data helper to preprocess csv format text dataset
 """
 import csv
+
 import numpy as np
-import random
 
 
-class data_helper:
+class DataHelper:
     def __init__(self, sequence_max_length=1024):
         self.alphabet = (
             'abcdefghijklmnopqrstuvwxyz0123456789-,;.!?:’"/|_#$%ˆ&*˜‘+=<>()[]{} '
@@ -30,8 +30,8 @@ class data_helper:
 
     def load_csv_file(self, filename, num_classes):
         """
-		Load CSV file, generate one-hot labels and process text data as Paper did.
-		"""
+        Load CSV file, generate one-hot labels and process text data as Paper did.
+        """
         all_data = []
         labels = []
         with open(filename) as f:
@@ -42,10 +42,8 @@ class data_helper:
                 one_hot[int(row["class"]) - 1] = 1
                 labels.append(one_hot)
                 # Char2vec
-                data = np.ones(self.sequence_max_length) * 68
                 text = row["fields"][-1].lower()
                 all_data.append(self.char2vec(text))
-        f.close()
         return np.array(all_data), np.array(labels)
 
     def load_dataset(self, dataset_path):
@@ -54,7 +52,6 @@ class data_helper:
             classes = []
             for line in f:
                 classes.append(line.strip())
-        f.close()
         num_classes = len(classes)
         # Read CSV Info
         train_data, train_label = self.load_csv_file(
@@ -65,10 +62,11 @@ class data_helper:
         )
         return train_data, train_label, test_data, test_label
 
-    def batch_iter(self, data, batch_size, num_epochs, shuffle=True):
+    @staticmethod
+    def batch_iter(data, batch_size, num_epochs, shuffle=True):
         """
-		Generates a batch iterator for a dataset.
-		"""
+        Generates a batch iterator for a dataset.
+        """
         data = np.array(data)
         data_size = len(data)
         num_batches_per_epoch = int((len(data) - 1) / batch_size) + 1
