@@ -24,7 +24,7 @@ class KMaxPooling(layers.Layer):
     def call(self, 
              inputs):
         if self.k is None:
-            k = int(inputs.shape[1] / 2)
+            k = int(tf.round(inputs.shape[1] / 2))
         else:
             k = self.k
 
@@ -83,7 +83,8 @@ class Conv1D_BN(layers.Layer):
         super(Conv1D_BN, self).__init__(name=name)
         self.filters = filters
         self.use_bias = use_bias
-        self.conv = layers.Conv1D(filters, kernel_size, strides=strides, padding=padding, use_bias=use_bias)
+        self.conv = layers.Conv1D(filters, kernel_size, strides=strides, padding=padding, use_bias=use_bias,
+                                  kernel_initializer='he_normal')
         self.bn = layers.BatchNormalization()
 
     def call(self, 
@@ -133,10 +134,12 @@ class ConvBlock(layers.Layer):
             if shortcut:
                 self.downsample = Conv1D_BN(filters, 3, strides=2, padding='same', use_bias=use_bias)
 
-        self.conv1 = layers.Conv1D(filters, kernel_size, strides=strides, padding='same', use_bias=use_bias)
+        self.conv1 = layers.Conv1D(filters, kernel_size, strides=strides, padding='same', use_bias=use_bias, 
+                                   kernel_initializer='he_normal')
         self.bn1 = layers.BatchNormalization()
 
-        self.conv2 = layers.Conv1D(filters, kernel_size, strides=1, padding='same', use_bias=use_bias)
+        self.conv2 = layers.Conv1D(filters, kernel_size, strides=1, padding='same', use_bias=use_bias,
+                                   kernel_initializer='he_normal')
         self.bn2 = layers.BatchNormalization()
 
         assert proj_type in ['identity', 'conv', None]
@@ -191,7 +194,7 @@ class VDCNN(Model):
     def __init__(self, 
                  num_classes,
                  depth=9, 
-                 vocab_size=68,
+                 vocab_size=69,
                  seqlen=None,
                  embed_dim=16,
                  shortcut=True, 
@@ -216,7 +219,8 @@ class VDCNN(Model):
         self.n_blocks = N_BLOCKS[depth]
 
         self.embed_char = layers.Embedding(vocab_size, embed_dim, input_length=seqlen)
-        self.conv = layers.Conv1D(64, 3, strides=1, padding='same', use_bias=use_bias)
+        self.conv = layers.Conv1D(64, 3, strides=1, padding='same', use_bias=use_bias, 
+                                  kernel_initializer='he_normal')
 
         # Convolutional Block 64
         self.conv_block_64 = []
@@ -289,7 +293,7 @@ class VDCNN(Model):
         return tf.nn.softmax(out)
 
 if __name__ == "__main__":
-    x = tf.zeros([4, 1024])
+    x = tf.zeros([4, 1014])
     model = VDCNN(10, depth=9, shortcut=True, pool_type='max', proj_type='identity')
     out = model(x)
     model.summary()
