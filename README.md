@@ -4,9 +4,9 @@ Tensorflow Implementation of Very Deep Convolutional Neural Network for Text Cla
 Archiecture for VDCNN is now **correctly re-implemented with Tensorflow 2 and tf.keras support**. A simple training interface is implemented following [Tensorflow 2 Expert Tutorial](https://www.tensorflow.org/tutorials/quickstart/advanced). Feel free to contribute additional utilities like TensorBoard support.
 
 **Side Note, if you are a newcomer for NLP text classification:** 
- - Please checkout new SOTA methods like transformers or BERTS. 
+ - Please checkout new SOTA NLP methods like [transformers](https://github.com/huggingface/transformers) or [Bert](https://github.com/google-research/bert). 
  
- - Check out PyTorch for **MUCH BETTER** dynamic graphing and dataset object support. 
+ - Check out [PyTorch](https://pytorch.org/) for **MUCH BETTER** dynamic graphing and dataset object support. 
    - Current VDCNN implementation is also extremely easy to be ported onto PyTorch.
 
 ## Prerequisites
@@ -17,7 +17,9 @@ Archiecture for VDCNN is now **correctly re-implemented with Tensorflow 2 and tf
  - numpy
  
 ## Datasets
-The original paper tests several NLP datasets, including DBPedia, AG's News, Sogou News and etc. "data_helper.py" operates with CSV format train and test files.
+The original paper tests several NLP datasets, including DBPedia, AG's News, Sogou News and etc. 
+
+[tensorflow-datasets](https://www.tensorflow.org/datasets/catalog/ag_news_subset) is used to support AG's News dataset.
 
 Downloads of those NLP text classification datasets can be found here (Many thanks to ArdalanM):
 
@@ -36,18 +38,23 @@ Downloads of those NLP text classification datasets can be found here (Many than
 The original paper suggests the following details for training:
  - SGD optimizer with lr 1e-2, decay 0.9. 
  - 10 - 15 epochs for convergence.
+ - He Initialization.
+
 
 Some additional parameter settings for this repo:
  - Gradient clipping with norm_value of 7.0, to stablize the training.
 
-Skip connections and pooling are correctly implemented now. For pooling, supporting:
+
+Skip connections and pooling are correctly implemented now:
  - k-maxpooling.
  - maxpooling with kernel size of 3 and strides 2.
  - conv pooling with K_i convolutional layer.
  
-For dotted skip connections, supporting:
+ 
+For dotted skip connections:
  - Identity with zero padding.
  - Conv1D with kernel size of 1.
+ 
  
 Please refer to Conneau et al for their methodology and experiment section in more detail.
 
