@@ -1,5 +1,5 @@
 import tensorflow as tf
-from tensorflow.keras import Model, layers, Sequential
+from tensorflow.keras import Model, layers
 
 N_BLOCKS = {9: (1, 1, 1, 1),
             17: (2, 2, 2, 2),
@@ -70,6 +70,29 @@ class ZeroPadding(layers.Layer):
                    mode='CONSTANT', constant_values=0)
         return x
 
+class Conv1D_BN(layers.Layer):
+    """A stack of conv 1x1 and BatchNorm.
+    """
+    def __init__(self, 
+                 filters,
+                 kernel_size=3,
+                 strides=2,
+                 padding='same',
+                 use_bias=True,
+                 name=None):
+        super(Conv1D_BN, self).__init__(name=name)
+        self.filters = filters
+        self.use_bias = use_bias
+        self.conv = layers.Conv1D(filters, kernel_size, strides=strides, padding=padding, use_bias=use_bias)
+        self.bn = layers.BatchNormalization()
+
+    def call(self, 
+             x):
+        x = self.conv(x)
+        x = self.bn(x)
+        return x
+    
+
 class ConvBlock(layers.Layer):
     """Conv block with downsampling.
     1x1 conv to increase dimensions.
@@ -101,14 +124,14 @@ class ConvBlock(layers.Layer):
         elif pool_type == 'conv':
             strides = 2     # Convolutional pooling with stride 2
             self.pool = None
-            self.downsample = Sequential([layers.Conv1D(filters, 3, strides=2, padding='same', use_bias=use_bias),
-                                          layers.BatchNormalization()])
+            if shortcut:
+                self.downsample = Conv1D_BN(filters, 3, strides=2, padding='same', use_bias=use_bias)
         
         else:
             strides = 1
             self.pool = Pooling(pool_type)
-            self.downsample = Sequential([layers.Conv1D(filters, 3, strides=2, padding='same', use_bias=use_bias),
-                                          layers.BatchNormalization()])
+            if shortcut:
+                self.downsample = Conv1D_BN(filters, 3, strides=2, padding='same', use_bias=use_bias)
 
         self.conv1 = layers.Conv1D(filters, kernel_size, strides=strides, padding='same', use_bias=use_bias)
         self.bn1 = layers.BatchNormalization()
@@ -117,27 +140,25 @@ class ConvBlock(layers.Layer):
         self.bn2 = layers.BatchNormalization()
 
         assert proj_type in ['identity', 'conv', None]
-        if proj_type == 'conv':
-            # 1x1 conv for projection
-            self.proj = Sequential([layers.Conv1D(filters*2, 1, strides=1, padding='same', use_bias=use_bias), 
-                                    layers.BatchNormalization()])
-        elif proj_type == 'identity':
-            # Identity using zero padding
-            self.proj = ZeroPadding([int(filters // 2), filters - int(filters // 2)])
+        if shortcut:
+            if proj_type == 'conv':
+                # 1x1 conv for projection
+                self.proj = Conv1D_BN(filters*2, 1, strides=1, padding='same', use_bias=use_bias)
+
+            elif proj_type == 'identity':
+                # Identity using zero padding
+                self.proj = ZeroPadding([int(filters // 2), filters - int(filters // 2)])
 
     def call(self, 
              x):
         residual = x
-        print('x:', x.shape)
 
         out = self.conv1(x)
         out = self.bn1(out)
         out = tf.nn.relu(out)
-        print('out:', out.shape)
 
         out = self.conv2(out)
         out = self.bn2(out)
-        print('out:', out.shape)
 
         if self.pool is not None:
             out = self.pool(out)
@@ -149,7 +170,7 @@ class ConvBlock(layers.Layer):
 
         out = tf.nn.relu(out)
 
-        if self.proj_type is not None:
+        if self.proj_type is not None and self.shortcut:
             out = self.proj(out)
 
         return out
@@ -170,7 +191,8 @@ class VDCNN(Model):
     def __init__(self, 
                  num_classes,
                  depth=9, 
-                 seqlen=1024,
+                 vocab_size=68,
+                 seqlen=None,
                  embed_dim=16,
                  shortcut=True, 
                  pool_type='max',
@@ -180,6 +202,7 @@ class VDCNN(Model):
         super(VDCNN, self).__init__()
         self.num_classes = num_classes
         self.depth = depth
+        self.vocab_size = vocab_size
         self.seqlen = seqlen
         self.embed_dim = embed_dim
         self.shortcut = shortcut
@@ -192,7 +215,7 @@ class VDCNN(Model):
         assert proj_type in ['conv', 'identity']
         self.n_blocks = N_BLOCKS[depth]
 
-        self.embed_char = layers.Embedding(seqlen, embed_dim)
+        self.embed_char = layers.Embedding(vocab_size, embed_dim, input_length=seqlen)
         self.conv = layers.Conv1D(64, 3, strides=1, padding='same', use_bias=use_bias)
 
         # Convolutional Block 64
@@ -230,35 +253,35 @@ class VDCNN(Model):
     def call(self,
              x):
         x = self.embed_char(x)
-        print('embed:', x.shape)
+        #print('embed:', x.shape)
         x = self.conv(x)
-        print('conv:', x.shape)
+        #print('conv:', x.shape)
 
         for l in self.conv_block_64:
             x = l(x)
-        print('conv_block_64:', x.shape)
+        #print('conv_block_64:', x.shape)
 
         for l in self.conv_block_128:
             x = l(x)
-        print('conv_block_128:', x.shape)
+        #print('conv_block_128:', x.shape)
 
         for l in self.conv_block_256:
             x = l(x)
-        print('conv_block_256:', x.shape)
+        #print('conv_block_256:', x.shape)
 
         for l in self.conv_block_512:
             x = l(x)
-        print('conv_block_512:', x.shape)
+        #print('conv_block_512:', x.shape)
 
         x = self.k_maxpool(x)
-        print('k_maxpool_8:', x.shape)
+        #print('k_maxpool_8:', x.shape)
         x = self.flatten(x)
-        print('flatten:', x.shape)
+        #print('flatten:', x.shape)
 
         x = self.fc1(x)
         x = self.fc2(x)
         out = self.out(x)
-        print('out:', out.shape)
+        #print('out:', out.shape)
 
         if self.logits:
             return out
@@ -272,16 +295,16 @@ if __name__ == "__main__":
     model.summary()
 
     print()
-    model = VDCNN(10, depth=17, shortcut=True, pool_type='max', proj_type='identity')
+    model = VDCNN(10, depth=17, shortcut=True, pool_type='k_max', proj_type='identity')
     out = model(x)
     model.summary()
 
     print()
-    model = VDCNN(10, depth=29, shortcut=True, pool_type='max', proj_type='conv')
+    model = VDCNN(10, depth=29, shortcut=False, pool_type='max', proj_type='conv')
     out = model(x)
     model.summary()
 
     print()
-    model = VDCNN(10, depth=49, shortcut=True, pool_type='max', proj_type='conv')
+    model = VDCNN(10, depth=49, shortcut=True, pool_type='conv', proj_type='conv')
     out = model(x)
     model.summary()
