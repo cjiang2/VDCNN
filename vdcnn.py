@@ -212,7 +212,7 @@ class VDCNN(Model):
         self.pool_type = pool_type
         self.proj_type = proj_type
         self.use_bias = use_bias
-        self.logits = True
+        self.logits = logits
 
         assert pool_type in ['max', 'k_max', 'conv']
         assert proj_type in ['conv', 'identity']
